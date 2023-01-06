@@ -114,29 +114,34 @@ class _Wc2RequestPageState extends State<Wc2RequestPage>
   }) async {
     final accountService = injector<AccountService>();
 
+    final accounts = context.read<AccountsBloc>().state.accounts;
+
     final signature = await (await accountService.getDefaultAccount())
         .getAccountDIDSignature(params.message);
     final permissionResults = params.permissions.map((permission) async {
       final chainFutures = permission.request.chains.map((chain) async {
-        try {
-          final account = await accountService.getAccountByAddress(
-              chain: chain, address: selectedAddress[chain]);
-          final chainResp = await account.signPermissionRequest(
-            chain: chain,
-            message: params.message,
-          );
-          return chainResp;
-        } on AccountException {
-          return Wc2Chain(
-            chain: chain,
-            address: selectedAddress[chain],
-          );
-        }
+        final list = accounts?.map((account) async {
+              if (account.persona == null) {
+                return Wc2Chain(
+                  chain: chain,
+                  address: selectedAddress[chain],
+                );
+              }
+              final chainResp =
+                  await account.persona?.wallet().signPermissionRequest(
+                        chain: chain,
+                        message: params.message,
+                      );
+              return chainResp;
+            }) ??
+            [];
+        return (await Future.wait(list)).toList();
       });
       final chains = (await Future.wait(chainFutures))
-          .where((e) => e != null)
-          .map((e) => e as Wc2Chain)
+          .expand((element) =>
+              element.where((e) => e != null).map((e) => e as Wc2Chain))
           .toList();
+
       return Wc2PermissionResult(
         type: permission.type,
         result: Wc2ChainResult(
