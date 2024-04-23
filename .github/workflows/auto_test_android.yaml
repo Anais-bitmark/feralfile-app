@@ -89,13 +89,15 @@ jobs:
           cat .env
 
       - name: Submoudles update
-        run: git submodule update --init --recursive
+        run: git -c submodule.auto-test.update=none submodule update --init --recursive
       - run: flutter pub cache repair
       - run: flutter pub get
       # Build app
       - name: Build to flutter apk inhouse app
         run: flutter build apk --flavor inhouse
       # CD to auto-test folder and install node_module
+      - name: Submoudles update again
+        run: git submodule update --init --recursive
       - name: CD to auto-test folder
         run: |
           cd auto-test
